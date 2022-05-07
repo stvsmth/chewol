@@ -4,6 +4,14 @@ pub struct Row {
     string: String,
 }
 impl Row {
+    pub fn is_empty(&self) -> bool {
+        self.string.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.string.len()
+    }
+
     pub fn render(&self, start: usize, end: usize) -> String {
         let end = min(end, self.string.len());
         let start = min(start, end);
