@@ -41,7 +41,7 @@ impl Terminal {
 
     #[allow(clippy::cast_possible_truncation)]
     pub fn cursor_position(pos: &Position) {
-        let Position{mut x, mut y} = pos;
+        let Position { mut x, mut y } = pos;
         x = x.saturating_add(1);
         y = y.saturating_add(1);
         let x = x as u16;
