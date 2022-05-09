@@ -10,6 +10,8 @@ use termion::event::Key;
 use termion::raw::IntoRawMode;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const QUIT_TIMES: u8 = 2;
+
 const STATUS_BAR_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
 const STATUS_BAR_BG_COLOR: color::Rgb = color::Rgb(239, 239, 239);
 
@@ -33,20 +35,20 @@ pub struct Position {
 }
 
 pub struct Editor {
-    should_quit: bool,
-    terminal: Terminal,
     cursor_position: Position,
-    offset: Position,
     document: Document,
+    offset: Position,
+    quit_times: u8,
+    should_quit: bool,
     status_message: StatusMessage,
+    terminal: Terminal,
 }
 
 impl Editor {
     pub fn default() -> Self {
         let args: Vec<String> = env::args().collect();
         let mut initial_status = String::from("HELP: quit: Ctrl-Q | save: Ctrl-S");
-        let document = if args.len() > 1 {
-            let filename = &args[1];
+        let document = if let Some(filename) = args.get(1) {
             let doc = Document::open(filename);
             if let Ok(doc) = doc {
                 doc
@@ -59,12 +61,13 @@ impl Editor {
         };
 
         Self {
-            should_quit: false,
-            terminal: Terminal::default().expect("Failed to initialize terminal"),
-            offset: Position::default(),
             cursor_position: Position::default(),
             document,
+            offset: Position::default(),
+            quit_times: QUIT_TIMES,
+            should_quit: false,
             status_message: StatusMessage::from(initial_status),
+            terminal: Terminal::default().expect("Failed to initialize terminal"),
         }
     }
 
@@ -110,11 +113,24 @@ impl Editor {
             | Key::End => self.move_cursor(pressed_key),
 
             // Editor commands
-            Key::Ctrl('q') => self.should_quit = true,
+            Key::Ctrl('q') => {
+                if self.quit_times > 0 && self.document.is_dirty() {
+                    self.status_message = StatusMessage::from(format!(
+                        "WARNING! File has unsaved changes. Press Ctrl-Q {} more times to force quit without saving.", self.quit_times
+                    ));
+                    self.quit_times -= 1;
+                    return Ok(());
+                }
+                self.should_quit = true;
+            }
             Key::Ctrl('s') => self.save(),
             _ => (),
         }
         self.scroll();
+        if self.quit_times < QUIT_TIMES {
+            self.quit_times = QUIT_TIMES;
+            self.status_message = StatusMessage::from(String::new());
+        }
         Ok(())
     }
 
@@ -169,7 +185,6 @@ impl Editor {
 
         if self.should_quit {
             Terminal::clear_screen();
-            println!("Goodbye.\r");
         } else {
             self.draw_rows();
             self.draw_status_bar();
@@ -286,11 +301,17 @@ impl Editor {
     fn draw_status_bar(&self) {
         let width = self.terminal.size().width as usize;
         let mut filename = "[No name]".to_string();
+        let modified_indicator = if self.document.is_dirty() { "*" } else { "" };
         if let Some(name) = &self.document.filename {
             filename = name.clone();
             filename.truncate(20);
         }
-        let mut status = format!("{} - {} lines", filename, self.document.len());
+        let mut status = format!(
+            "{}{} - {} lines",
+            filename,
+            modified_indicator,
+            self.document.len()
+        );
         let line_indicator = format!(
             "{}/{}",
             self.cursor_position.y.saturating_add(1),
@@ -322,6 +343,9 @@ impl Editor {
     }
 
     fn save(&mut self) {
+        if !self.document.is_dirty() {
+            return;
+        }
         if self.document.filename.is_none() {
             let new_name = self.prompt("Save as: ").unwrap_or(None);
             if new_name.is_none() {

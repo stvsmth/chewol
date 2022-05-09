@@ -1,13 +1,13 @@
 use crate::Position;
 use crate::Row;
 
-use std::cmp::Ordering;
 use std::fs;
 use std::io::{Error, Write};
 
 #[derive(Default)]
 pub struct Document {
     rows: Vec<Row>,
+    dirty: bool,
     pub filename: Option<String>,
 }
 
@@ -27,24 +27,25 @@ impl Document {
         }
         let row = self.rows.get_mut(at.y).unwrap();
         row.delete(at.x);
+        self.dirty = true;
     }
 
     pub fn insert(&mut self, at: &Position, c: char) {
+        if at.y > self.len() {
+            return;
+        }
+        self.dirty = true;
         if c == '\n' {
             self.insert_newline(at);
             return;
         }
-        match at.y.cmp(&self.len()) {
-            Ordering::Less => {
-                let row = self.rows.get_mut(at.y).unwrap();
-                row.insert(at.x, c);
-            }
-            Ordering::Equal => {
-                let mut row = Row::default();
-                row.insert(0, c);
-                self.rows.push(row);
-            }
-            Ordering::Greater => (),
+        if at.y == self.len() {
+            let mut row = Row::default();
+            row.insert(0, c);
+            self.rows.push(row);
+        } else {
+            let row = self.rows.get_mut(at.y).unwrap();
+            row.insert(at.x, c);
         }
     }
 
@@ -52,12 +53,17 @@ impl Document {
         if at.y > self.len() {
             return;
         }
+        self.dirty = true;
         if at.y == self.len() {
             self.rows.push(Row::default());
             return;
         }
         let new_row = self.rows.get_mut(at.y).unwrap().split(at.x);
         self.rows.insert(at.y + 1, new_row);
+    }
+
+    pub fn is_dirty(&self) -> bool {
+        self.dirty
     }
 
     pub fn is_empty(&self) -> bool {
@@ -77,6 +83,7 @@ impl Document {
         Ok(Self {
             rows,
             filename: Some(filename.to_string()),
+            dirty: false,
         })
     }
 
@@ -84,7 +91,7 @@ impl Document {
         self.rows.get(index)
     }
 
-    pub fn save(&self) -> Result<(), Error> {
+    pub fn save(&mut self) -> Result<(), Error> {
         if let Some(filename) = &self.filename {
             let mut file = fs::File::create(filename)?;
             for row in &self.rows {
@@ -92,6 +99,7 @@ impl Document {
                 file.write_all(b"\n")?;
             }
         }
+        self.dirty = false;
         Ok(())
     }
 }
