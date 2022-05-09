@@ -85,7 +85,17 @@ impl Editor {
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
-            Key::Ctrl('q') => self.should_quit = true,
+            Key::Char(c) => {
+                self.document.insert(&self.cursor_position, c);
+                self.move_cursor(Key::Right);
+            }
+            Key::Delete => self.document.delete(&self.cursor_position),
+            Key::Backspace => {
+                if self.cursor_position.x > 0 || self.cursor_position.y > 0 {
+                    self.move_cursor(Key::Left);
+                    self.document.delete(&self.cursor_position);
+                }
+            }
             Key::Up
             | Key::Down
             | Key::Left
@@ -94,6 +104,7 @@ impl Editor {
             | Key::PageDown
             | Key::Home
             | Key::End => self.move_cursor(pressed_key),
+            Key::Ctrl('q') => self.should_quit = true,
             _ => (),
         }
         self.scroll();
