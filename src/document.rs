@@ -1,6 +1,7 @@
 use crate::Position;
 use crate::Row;
 
+use std::cmp::Ordering;
 use std::fs;
 
 #[derive(Default)]
@@ -32,13 +33,17 @@ impl Document {
             self.insert_newline(at);
             return;
         }
-        if at.y == self.len() {
-            let mut row = Row::default();
-            row.insert(0, c);
-            self.rows.push(row);
-        } else if at.y < self.len() {
-            let row = self.rows.get_mut(at.y).unwrap();
-            row.insert(at.x, c);
+        match at.y.cmp(&self.len()) {
+            Ordering::Less => {
+                let row = self.rows.get_mut(at.y).unwrap();
+                row.insert(at.x, c);
+            }
+            Ordering::Equal => {
+                let mut row = Row::default();
+                row.insert(0, c);
+                self.rows.push(row);
+            }
+            Ordering::Greater => (),
         }
     }
 
