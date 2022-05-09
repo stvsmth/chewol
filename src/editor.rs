@@ -108,9 +108,13 @@ impl Editor {
             | Key::Left
             | Key::Right
             | Key::PageUp
+            | Key::Ctrl('u')
             | Key::PageDown
+            | Key::Ctrl('d')
             | Key::Home
-            | Key::End => self.move_cursor(pressed_key),
+            | Key::Ctrl('a')
+            | Key::End
+            | Key::Ctrl('e') => self.move_cursor(pressed_key),
 
             // Editor commands
             Key::Ctrl('q') => {
@@ -209,22 +213,22 @@ impl Editor {
         };
 
         match key {
-            Key::PageUp => {
+            Key::PageUp | Key::Ctrl('u') => {
                 y = if y > terminal_height {
                     y - terminal_height
                 } else {
                     0
                 }
             }
-            Key::PageDown => {
+            Key::PageDown | Key::Ctrl('d') => {
                 y = if y.saturating_add(terminal_height) < height {
                     y + terminal_height as usize
                 } else {
                     height
                 }
             }
-            Key::Home => x = 0,
-            Key::End => x = width,
+            Key::Home | Key::Ctrl('a') => x = 0,
+            Key::End | Key::Ctrl('e') => x = width,
             Key::Up => y = y.saturating_sub(1),
             Key::Down => {
                 if y < height {
