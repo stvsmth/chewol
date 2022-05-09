@@ -44,7 +44,7 @@ pub struct Editor {
 impl Editor {
     pub fn default() -> Self {
         let args: Vec<String> = env::args().collect();
-        let mut initial_status = String::from("HELP: Ctrl-Q = quit");
+        let mut initial_status = String::from("HELP: quit: Ctrl-Q | save: Ctrl-S");
         let document = if args.len() > 1 {
             let filename = &args[1];
             let doc = Document::open(filename);
@@ -82,9 +82,11 @@ impl Editor {
             }
         }
     }
+
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
         let pressed_key = Terminal::read_key()?;
         match pressed_key {
+            // Editing
             Key::Char(c) => {
                 self.document.insert(&self.cursor_position, c);
                 self.move_cursor(Key::Right);
@@ -96,6 +98,8 @@ impl Editor {
                     self.document.delete(&self.cursor_position);
                 }
             }
+
+            // Navigation
             Key::Up
             | Key::Down
             | Key::Left
@@ -104,11 +108,42 @@ impl Editor {
             | Key::PageDown
             | Key::Home
             | Key::End => self.move_cursor(pressed_key),
+
+            // Editor commands
             Key::Ctrl('q') => self.should_quit = true,
+            Key::Ctrl('s') => {
+                if self.document.filename.is_none() {
+                    self.document.filename = Some(self.prompt("Save ass: ")?);
+                }
+                if self.document.save().is_ok() {
+                    self.status_message =
+                        StatusMessage::from("File saved successfully.".to_string());
+                } else {
+                    self.status_message = StatusMessage::from("Error writing file!".to_string());
+                }
+            }
             _ => (),
         }
         self.scroll();
         Ok(())
+    }
+
+    fn prompt(&mut self, prompt: &str) -> Result<String, std::io::Error> {
+        let mut result = String::new();
+        loop {
+            self.status_message = StatusMessage::from(format!("{}{}", prompt, result));
+            self.refresh_screen()?;
+            if let Key::Char(c) = Terminal::read_key()? {
+                if c == '\n' {
+                    self.status_message = StatusMessage::from(String::new());
+                    break;
+                }
+                if !c.is_control() {
+                    result.push(c);
+                }
+            }
+        }
+        Ok(result)
     }
 
     fn scroll(&mut self) {

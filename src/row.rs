@@ -12,6 +12,10 @@ impl Row {
         self.string = format!("{}{}", self.string, new.string);
     }
 
+    pub fn as_bytes(&self) -> &[u8] {
+        self.string.as_bytes()
+    }
+
     pub fn delete(&mut self, at: usize) {
         if at >= self.len() {
             return;
