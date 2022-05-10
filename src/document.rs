@@ -30,6 +30,15 @@ impl Document {
         self.dirty = true;
     }
 
+    pub fn find(&self, query: &str) -> Option<Position> {
+        for (y, row) in self.rows.iter().enumerate() {
+            if let Some(x) = row.find(query) {
+                return Some(Position { x, y });
+            }
+        }
+        None
+    }
+
     pub fn insert(&mut self, at: &Position, c: char) {
         if at.y > self.len() {
             return;

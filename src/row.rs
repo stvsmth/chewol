@@ -32,6 +32,20 @@ impl Row {
         self.string = result;
     }
 
+    pub fn find(&self, query: &str) -> Option<usize> {
+        let matching_byte_index = self.string.find(query);
+        if let Some(matching_byte_index) = matching_byte_index {
+            for (grapheme_index, (byte_index, _)) in
+                self.string[..].grapheme_indices(true).enumerate()
+            {
+                if matching_byte_index == byte_index {
+                    return Some(grapheme_index);
+                }
+            }
+        }
+        None
+    }
+
     pub fn insert(&mut self, at: usize, c: char) {
         if at >= self.len() {
             self.string.push(c);
