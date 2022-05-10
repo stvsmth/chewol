@@ -108,13 +108,10 @@ impl Editor {
             | Key::Left
             | Key::Right
             | Key::PageUp
-            | Key::Ctrl('u')
             | Key::PageDown
-            | Key::Ctrl('d')
             | Key::Home
-            | Key::Ctrl('a')
             | Key::End
-            | Key::Ctrl('e') => self.move_cursor(pressed_key),
+            | Key::Ctrl('a' | 'd' | 'e' | 'u') => self.move_cursor(pressed_key),
 
             // Editor commands
             Key::Ctrl('f') => {
