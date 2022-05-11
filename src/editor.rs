@@ -77,19 +77,148 @@ impl Editor {
         }
     }
 
-    pub fn run(&mut self) {
-        let _stdout = stdout().into_raw_mode().unwrap();
-        loop {
-            if let Err(error) = self.refresh_screen() {
-                die(&error);
-            }
-            if self.should_quit {
-                break;
-            }
-            if let Err(error) = self.process_keypress() {
-                die(&error);
+    fn draw_message_bar(&self) {
+        Terminal::clear_current_line();
+        let message = &self.status_message;
+        if Instant::now() - message.time < Duration::new(5, 0) {
+            let mut text = message.text.clone();
+            text.truncate(self.terminal.size().width as usize);
+            print!("{}", text);
+        }
+    }
+
+    pub fn draw_row(&self, row: &Row) {
+        let width = self.terminal.size().width as usize;
+        let start = self.offset.x;
+        let end = self.offset.x + width;
+        let row = row.render(start, end);
+        println!("{}\r", row);
+    }
+
+    pub fn draw_rows(&self) {
+        let height = self.terminal.size().height;
+        for terminal_row in 0..height {
+            Terminal::clear_current_line();
+            if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
+                self.draw_row(row);
+            } else if self.document.is_empty() && terminal_row == height / 3 {
+                self.draw_welcome_message();
+            } else {
+                println!("~\r");
             }
         }
+    }
+
+    fn draw_status_bar(&self) {
+        let width = self.terminal.size().width as usize;
+        let mut filename = "[No name]".to_string();
+        let modified_indicator = if self.document.is_dirty() { "*" } else { "" };
+        if let Some(name) = &self.document.filename {
+            filename = name.clone();
+            filename.truncate(20);
+        }
+        let mut status = format!(
+            "{}{} - {} lines",
+            filename,
+            modified_indicator,
+            self.document.len()
+        );
+        let line_indicator = format!(
+            "{}/{}",
+            self.cursor_position.y.saturating_add(1),
+            self.document.len(),
+        );
+        let len = status.len() + line_indicator.len();
+        if width > len {
+            status.push_str(&" ".repeat(width - len));
+        }
+        status = format!("{}{}", status, line_indicator);
+        status.truncate(width);
+
+        Terminal::set_bg_color(STATUS_BAR_BG_COLOR);
+        Terminal::set_fg_color(STATUS_BAR_FG_COLOR);
+        println!("{}\r", status);
+        Terminal::reset_fg_color();
+        Terminal::reset_bg_color();
+    }
+
+    fn draw_welcome_message(&self) {
+        let mut welcome_msg = format!("CheWol editor -- version {}\r", VERSION);
+        let width = self.terminal.size().width as usize;
+        let len = welcome_msg.len();
+        let padding = width.saturating_sub(len) / 2;
+        let spaces = " ".repeat(padding.saturating_sub(1));
+        welcome_msg = format!("~{}{}", spaces, welcome_msg);
+        welcome_msg.truncate(width);
+        println!("{}\r", welcome_msg);
+    }
+
+    fn move_cursor(&mut self, key: Key) {
+        let Position { mut x, mut y } = self.cursor_position;
+        let terminal_height = self.terminal.size().height as usize;
+        let height = self.document.len();
+        let mut width = if let Some(row) = self.document.row(y) {
+            row.len()
+        } else {
+            0
+        };
+
+        match key {
+            Key::PageUp | Key::Ctrl('u') => {
+                y = if y > terminal_height {
+                    y - terminal_height
+                } else {
+                    0
+                }
+            }
+            Key::PageDown | Key::Ctrl('d') => {
+                y = if y.saturating_add(terminal_height) < height {
+                    y + terminal_height as usize
+                } else {
+                    height
+                }
+            }
+            Key::Home | Key::Ctrl('a') => x = 0,
+            Key::End | Key::Ctrl('e') => x = width,
+            Key::Up => y = y.saturating_sub(1),
+            Key::Down => {
+                if y < height {
+                    y = y.saturating_add(1);
+                }
+            }
+            Key::Left => {
+                // Move cursor left, going up one line if necessary
+                if x > 0 {
+                    x -= 1;
+                } else if y > 0 {
+                    y -= 1;
+                    if let Some(row) = self.document.row(y) {
+                        x = row.len();
+                    } else {
+                        x = 0;
+                    }
+                }
+            }
+            Key::Right => {
+                // Move cursor right, going down one line if necessary
+                if x < width {
+                    x += 1;
+                } else {
+                    y += 1;
+                    x = 0;
+                }
+            }
+            _ => (),
+        }
+        width = if let Some(row) = self.document.row(y) {
+            row.len()
+        } else {
+            0
+        };
+        if x > width {
+            x = width;
+        }
+        self.cursor_position = Position { x, y }
     }
 
     fn process_keypress(&mut self) -> Result<(), std::io::Error> {
@@ -178,23 +307,6 @@ impl Editor {
         Ok(Some(result))
     }
 
-    fn scroll(&mut self) {
-        let Position { x, y } = self.cursor_position;
-        let width = self.terminal.size().width as usize;
-        let height = self.terminal.size().height as usize;
-        let mut offset = &mut self.offset;
-        if y < offset.y {
-            offset.y = y;
-        } else if y >= offset.y.saturating_add(height) {
-            offset.y = y.saturating_add(height).saturating_add(1);
-        }
-        if x < offset.x {
-            offset.x = x;
-        } else if x >= offset.x.saturating_add(width) {
-            offset.x = x.saturating_add(width).saturating_add(1);
-        }
-    }
-
     fn refresh_screen(&self) -> Result<(), std::io::Error> {
         Terminal::cursor_hide();
         Terminal::cursor_position(&Position::default());
@@ -214,148 +326,19 @@ impl Editor {
         Terminal::flush()
     }
 
-    fn move_cursor(&mut self, key: Key) {
-        let Position { mut x, mut y } = self.cursor_position;
-        let terminal_height = self.terminal.size().height as usize;
-        let height = self.document.len();
-        let mut width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
-
-        match key {
-            Key::PageUp | Key::Ctrl('u') => {
-                y = if y > terminal_height {
-                    y - terminal_height
-                } else {
-                    0
-                }
+    pub fn run(&mut self) {
+        let _stdout = stdout().into_raw_mode().unwrap();
+        loop {
+            if let Err(error) = self.refresh_screen() {
+                die(&error);
             }
-            Key::PageDown | Key::Ctrl('d') => {
-                y = if y.saturating_add(terminal_height) < height {
-                    y + terminal_height as usize
-                } else {
-                    height
-                }
+            if self.should_quit {
+                break;
             }
-            Key::Home | Key::Ctrl('a') => x = 0,
-            Key::End | Key::Ctrl('e') => x = width,
-            Key::Up => y = y.saturating_sub(1),
-            Key::Down => {
-                if y < height {
-                    y = y.saturating_add(1);
-                }
-            }
-            Key::Left => {
-                // Move cursor left, going up one line if necessary
-                if x > 0 {
-                    x -= 1;
-                } else if y > 0 {
-                    y -= 1;
-                    if let Some(row) = self.document.row(y) {
-                        x = row.len();
-                    } else {
-                        x = 0;
-                    }
-                }
-            }
-            Key::Right => {
-                // Move cursor right, going down one line if necessary
-                if x < width {
-                    x += 1;
-                } else {
-                    y += 1;
-                    x = 0;
-                }
-            }
-            _ => (),
-        }
-        width = if let Some(row) = self.document.row(y) {
-            row.len()
-        } else {
-            0
-        };
-        if x > width {
-            x = width;
-        }
-        self.cursor_position = Position { x, y }
-    }
-
-    fn draw_message_bar(&self) {
-        Terminal::clear_current_line();
-        let message = &self.status_message;
-        if Instant::now() - message.time < Duration::new(5, 0) {
-            let mut text = message.text.clone();
-            text.truncate(self.terminal.size().width as usize);
-            print!("{}", text);
-        }
-    }
-
-    pub fn draw_row(&self, row: &Row) {
-        let width = self.terminal.size().width as usize;
-        let start = self.offset.x;
-        let end = self.offset.x + width;
-        let row = row.render(start, end);
-        println!("{}\r", row);
-    }
-
-    pub fn draw_rows(&self) {
-        let height = self.terminal.size().height;
-        for terminal_row in 0..height {
-            Terminal::clear_current_line();
-            if let Some(row) = self.document.row(terminal_row as usize + self.offset.y) {
-                self.draw_row(row);
-            } else if self.document.is_empty() && terminal_row == height / 3 {
-                self.draw_welcome_message();
-            } else {
-                println!("~\r");
+            if let Err(error) = self.process_keypress() {
+                die(&error);
             }
         }
-    }
-
-    fn draw_status_bar(&self) {
-        let width = self.terminal.size().width as usize;
-        let mut filename = "[No name]".to_string();
-        let modified_indicator = if self.document.is_dirty() { "*" } else { "" };
-        if let Some(name) = &self.document.filename {
-            filename = name.clone();
-            filename.truncate(20);
-        }
-        let mut status = format!(
-            "{}{} - {} lines",
-            filename,
-            modified_indicator,
-            self.document.len()
-        );
-        let line_indicator = format!(
-            "{}/{}",
-            self.cursor_position.y.saturating_add(1),
-            self.document.len(),
-        );
-        let len = status.len() + line_indicator.len();
-        if width > len {
-            status.push_str(&" ".repeat(width - len));
-        }
-        status = format!("{}{}", status, line_indicator);
-        status.truncate(width);
-
-        Terminal::set_bg_color(STATUS_BAR_BG_COLOR);
-        Terminal::set_fg_color(STATUS_BAR_FG_COLOR);
-        println!("{}\r", status);
-        Terminal::reset_fg_color();
-        Terminal::reset_bg_color();
-    }
-
-    fn draw_welcome_message(&self) {
-        let mut welcome_msg = format!("CheWol editor -- version {}\r", VERSION);
-        let width = self.terminal.size().width as usize;
-        let len = welcome_msg.len();
-        let padding = width.saturating_sub(len) / 2;
-        let spaces = " ".repeat(padding.saturating_sub(1));
-        welcome_msg = format!("~{}{}", spaces, welcome_msg);
-        welcome_msg.truncate(width);
-        println!("{}\r", welcome_msg);
     }
 
     fn save(&mut self) {
@@ -374,6 +357,23 @@ impl Editor {
             self.status_message = StatusMessage::from("File saved successfully.".to_string());
         } else {
             self.status_message = StatusMessage::from("Error writing file".to_string());
+        }
+    }
+
+    fn scroll(&mut self) {
+        let Position { x, y } = self.cursor_position;
+        let width = self.terminal.size().width as usize;
+        let height = self.terminal.size().height as usize;
+        let mut offset = &mut self.offset;
+        if y < offset.y {
+            offset.y = y;
+        } else if y >= offset.y.saturating_add(height) {
+            offset.y = y.saturating_add(height).saturating_add(1);
+        }
+        if x < offset.x {
+            offset.x = x;
+        } else if x >= offset.x.saturating_add(width) {
+            offset.x = x.saturating_add(width).saturating_add(1);
         }
     }
 
