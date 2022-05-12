@@ -1,11 +1,13 @@
+use crate::highlighting;
 use crate::SearchDirection;
 use std::cmp::min;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Default)]
 pub struct Row {
-    string: String,
     len: usize,
+    highlighting: Vec<highlighting::Type>,
+    string: String,
 }
 
 impl Row {
@@ -70,6 +72,18 @@ impl Row {
         None
     }
 
+    pub fn highlight(&mut self) {
+        let mut highlighting = Vec::new();
+        for c in self.string.chars() {
+            if c.is_ascii_digit() {
+                highlighting.push(highlighting::Type::Number);
+            } else {
+                highlighting.push(highlighting::Type::None);
+            }
+        }
+        self.highlighting = highlighting;
+    }
+
     pub fn insert(&mut self, at: usize, c: char) {
         if at >= self.len() {
             self.string.push(c);
@@ -103,13 +117,33 @@ impl Row {
         let end = min(end, self.string.len());
         let start = min(start, end);
         let mut result = String::new();
-        for grapheme in self.string[..]
+        let mut current_highlighting = &highlighting::Type::None;
+        for (index, grapheme) in self.string[..]
             .graphemes(true)
+            .enumerate()
             .skip(start)
             .take(end - start)
         {
-            result.push_str(grapheme);
+            if let Some(c) = grapheme.chars().next() {
+                let highlighting_type = self
+                    .highlighting
+                    .get(index)
+                    .unwrap_or(&highlighting::Type::None);
+                if highlighting_type != current_highlighting {
+                    current_highlighting = highlighting_type;
+                    let start_highlight =
+                        format!("{}", termion::color::Fg(highlighting_type.to_color()));
+                    result.push_str(&start_highlight[..]);
+                }
+                if c == '\t' {
+                    result.push(' ');
+                } else {
+                    result.push(c);
+                }
+            }
         }
+        let end_highlight = format!("{}", termion::color::Fg(termion::color::Reset));
+        result.push_str(&end_highlight[..]);
         result
     }
 
@@ -131,8 +165,9 @@ impl Row {
         self.len = length;
 
         Self {
-            string: splitted_row,
             len: splitted_length,
+            highlighting: Vec::new(),
+            string: splitted_row,
         }
     }
 }
@@ -140,8 +175,9 @@ impl Row {
 impl From<&str> for Row {
     fn from(slice: &str) -> Self {
         Self {
-            string: String::from(slice),
             len: slice.graphemes(true).count(),
+            highlighting: Vec::new(),
+            string: String::from(slice),
         }
     }
 }

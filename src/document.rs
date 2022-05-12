@@ -79,10 +79,12 @@ impl Document {
         if at.y == self.len() {
             let mut row = Row::default();
             row.insert(0, c);
+            row.highlight();
             self.rows.push(row);
         } else {
             let row = self.rows.get_mut(at.y).unwrap();
             row.insert(at.x, c);
+            row.highlight();
         }
     }
 
@@ -95,7 +97,10 @@ impl Document {
             self.rows.push(Row::default());
             return;
         }
-        let new_row = self.rows.get_mut(at.y).unwrap().split(at.x);
+        let current_row = &mut self.rows[at.y];
+        let mut new_row = current_row.split(at.x);
+        current_row.highlight();
+        new_row.highlight();
         self.rows.insert(at.y + 1, new_row);
     }
 
@@ -115,7 +120,9 @@ impl Document {
         let contents = fs::read_to_string(filename)?;
         let mut rows = Vec::new();
         for line in contents.lines() {
-            rows.push(Row::from(line));
+            let mut row = Row::from(line);
+            row.highlight();
+            rows.push(row);
         }
         Ok(Self {
             rows,
