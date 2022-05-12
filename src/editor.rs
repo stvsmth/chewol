@@ -15,6 +15,10 @@ const QUIT_TIMES: u8 = 2;
 const STATUS_BAR_FG_COLOR: color::Rgb = color::Rgb(63, 63, 63);
 const STATUS_BAR_BG_COLOR: color::Rgb = color::Rgb(239, 239, 239);
 
+// TODO:
+// * Add some tests, particularly around highlighting
+// * Consider renaming Type::Strings etc.
+
 #[derive(PartialEq, Copy, Clone)]
 pub enum SearchDirection {
     Forward,

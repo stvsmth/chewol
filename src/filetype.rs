@@ -16,6 +16,7 @@ impl FileType {
             return Self {
                 hl_opts: HighlightOptions {
                     characters: true,
+                    comments: true,
                     numbers: true,
                     strings: true,
                 },
@@ -37,6 +38,7 @@ impl FileType {
 #[derive(Default, Copy, Clone)]
 pub struct HighlightOptions {
     characters: bool,
+    comments: bool,
     numbers: bool,
     strings: bool,
 }
@@ -44,6 +46,10 @@ pub struct HighlightOptions {
 impl HighlightOptions {
     pub fn characters(self) -> bool {
         self.characters
+    }
+
+    pub fn comments(self) -> bool {
+        self.comments
     }
 
     pub fn numbers(self) -> bool {
