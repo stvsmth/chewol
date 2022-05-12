@@ -14,7 +14,11 @@ impl FileType {
             == Some(true)
         {
             return Self {
-                hl_opts: HighlightOptions { numbers: true },
+                hl_opts: HighlightOptions {
+                    characters: true,
+                    numbers: true,
+                    strings: true,
+                },
                 name: String::from("Rust"),
             };
         }
@@ -32,12 +36,22 @@ impl FileType {
 
 #[derive(Default, Copy, Clone)]
 pub struct HighlightOptions {
+    characters: bool,
     numbers: bool,
+    strings: bool,
 }
 
 impl HighlightOptions {
+    pub fn characters(self) -> bool {
+        self.characters
+    }
+
     pub fn numbers(self) -> bool {
         self.numbers
+    }
+
+    pub fn strings(self) -> bool {
+        self.strings
     }
 }
 
