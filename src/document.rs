@@ -28,8 +28,7 @@ impl Document {
             let row = self.rows.get_mut(at.y).unwrap();
             row.delete(at.x);
         }
-        let row = self.rows.get_mut(at.y).unwrap();
-        row.delete(at.x);
+        self.highlight(None);
         self.dirty = true;
     }
 
@@ -74,8 +73,13 @@ impl Document {
     }
 
     pub fn highlight(&mut self, word: Option<&str>) {
+        let mut start_with_comments = false;
         for row in &mut self.rows {
-            row.highlight(self.file_type.highlight_options(), word);
+            start_with_comments = row.highlight(
+                self.file_type.highlight_options(),
+                word,
+                start_with_comments,
+            );
         }
     }
 
@@ -86,18 +90,15 @@ impl Document {
         self.dirty = true;
         if c == '\n' {
             self.insert_newline(at);
-            return;
-        }
-        if at.y == self.len() {
+        } else if at.y == self.rows.len() {
             let mut row = Row::default();
             row.insert(0, c);
-            row.highlight(self.file_type.highlight_options(), None);
             self.rows.push(row);
         } else {
             let row = self.rows.get_mut(at.y).unwrap();
             row.insert(at.x, c);
-            row.highlight(self.file_type.highlight_options(), None);
         }
+        self.highlight(None);
     }
 
     pub fn insert_newline(&mut self, at: &Position) {
@@ -110,9 +111,7 @@ impl Document {
             return;
         }
         let current_row = &mut self.rows[at.y];
-        let mut new_row = current_row.split(at.x);
-        current_row.highlight(self.file_type.highlight_options(), None);
-        new_row.highlight(self.file_type.highlight_options(), None);
+        let new_row = current_row.split(at.x);
         self.rows.insert(at.y + 1, new_row);
     }
 
@@ -131,10 +130,12 @@ impl Document {
     pub fn open(filename: &str) -> Result<Self, std::io::Error> {
         let contents = fs::read_to_string(filename)?;
         let file_type = FileType::from(filename);
+        let mut start_with_comments = false;
         let mut rows = Vec::new();
         for line in contents.lines() {
             let mut row = Row::from(line);
-            row.highlight(file_type.highlight_options(), None);
+            start_with_comments =
+                row.highlight(file_type.highlight_options(), None, start_with_comments);
             rows.push(row);
         }
         Ok(Self {
@@ -153,10 +154,15 @@ impl Document {
         if let Some(filename) = &self.filename {
             let mut file = fs::File::create(filename)?;
             self.file_type = FileType::from(filename);
+            let mut start_with_comment = false;
             for row in &mut self.rows {
                 file.write_all(row.as_bytes())?;
                 file.write_all(b"\n")?;
-                row.highlight(self.file_type.highlight_options(), None);
+                start_with_comment = row.highlight(
+                    &self.file_type.highlight_options(),
+                    None,
+                    start_with_comment,
+                )
             }
             self.dirty = false;
         }

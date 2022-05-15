@@ -2,6 +2,7 @@
 pub struct HighlightOptions {
     characters: bool,
     comments: bool,
+    multiline_comments: bool,
     primary_keywords: Vec<String>,
     numbers: bool,
     strings: bool,
@@ -15,6 +16,10 @@ impl HighlightOptions {
 
     pub fn comments(&self) -> bool {
         self.comments
+    }
+
+    pub fn multiline_comments(&self) -> bool {
+        self.multiline_comments
     }
 
     pub fn primary_keywords(&self) -> &Vec<String> {
@@ -71,6 +76,7 @@ impl FileType {
                 hl_opts: HighlightOptions {
                     characters: true,
                     comments: true,
+                    multiline_comments: true,
                     numbers: true,
                     strings: true,
                     primary_keywords: vec![
