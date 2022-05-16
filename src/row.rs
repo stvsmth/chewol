@@ -5,16 +5,17 @@ use std::cmp::min;
 use termion::color;
 use unicode_segmentation::UnicodeSegmentation;
 
-/* TODO:
-The loop in highlight implicitly relies on the highlight functions to advance
-index. If any of these functions returns true, but does not modify index, we run
-into an infinite loop. This is not obvious in the code and therefore not ideal.
-
-The highlighting will not work around the borders of usize. We are pushing
-things into the highlighting array without checking if it is safe, and we are
-advancing index in many cases without any kind of check. It is not easy to see
-and understand how our code will behave in this case. Will it crash? Will it
-enter an infinite loop?
+/*
+TODO:
+- Add tests, particularly around highlighting computations.
+- The loop in highlight implicitly relies on the highlight functions to advance
+  index. If any of these functions returns true, but does not modify index, we run
+  into an infinite loop. This is not obvious in the code and therefore not ideal.
+- The highlighting will not work around the borders of usize. We are pushing
+  things into the highlighting array without checking if it is safe, and we are
+  advancing index in many cases without any kind of check. It is not easy to see
+  and understand how our code will behave in this case. Will it crash? Will it
+  enter an infinite loop?
 */
 
 #[derive(Default)]
