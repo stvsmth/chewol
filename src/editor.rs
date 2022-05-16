@@ -17,7 +17,7 @@ const STATUS_BAR_BG_COLOR: color::Rgb = color::Rgb(239, 239, 239);
 
 /* TODO:
  * Add some tests, particularly around highlighting
- * Consider renaming Type::Strings 
+ * Consider renaming Type::Strings
 */
 
 #[derive(PartialEq, Copy, Clone)]
@@ -53,6 +53,7 @@ pub struct Editor {
     should_quit: bool,
     status_message: StatusMessage,
     terminal: Terminal,
+    highlighted_word: Option<String>,
 }
 
 impl Editor {
@@ -74,6 +75,7 @@ impl Editor {
         Self {
             cursor_position: Position::default(),
             document,
+            highlighted_word: None,
             offset: Position::default(),
             quit_times: QUIT_TIMES,
             should_quit: false,
@@ -313,13 +315,21 @@ impl Editor {
         Ok(Some(result))
     }
 
-    fn refresh_screen(&self) -> Result<(), std::io::Error> {
+    fn refresh_screen(&mut self) -> Result<(), std::io::Error> {
         Terminal::cursor_hide();
         Terminal::cursor_position(&Position::default());
 
         if self.should_quit {
             Terminal::clear_screen();
         } else {
+            self.document.highlight(
+                &self.highlighted_word,
+                Some(
+                    self.offset
+                        .y
+                        .saturating_add(self.terminal.size().height as usize),
+                ),
+            );
             self.draw_rows();
             self.draw_status_bar();
             self.draw_message_bar();
@@ -410,7 +420,7 @@ impl Editor {
                     } else if moved {
                         editor.move_cursor(Key::Left);
                     }
-                    editor.document.highlight(Some(query));
+                    editor.highlighted_word = Some(query.to_string());
                 },
             )
             .unwrap_or(None);
@@ -418,7 +428,7 @@ impl Editor {
             self.cursor_position = old_position;
             self.scroll();
         }
-        self.document.highlight(None);
+        self.highlighted_word = None;
     }
 }
 
