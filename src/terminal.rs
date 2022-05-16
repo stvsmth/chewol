@@ -1,11 +1,12 @@
 use crate::Position;
 
-use termion::color;
-
 use std::io::{self, stdout, Write};
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::{IntoRawMode, RawTerminal};
+use termion::{
+    clear, color, cursor,
+    event::Key,
+    input::TermRead,
+    raw::{IntoRawMode, RawTerminal},
+};
 
 pub struct Size {
     pub width: u16,
@@ -30,15 +31,15 @@ impl Terminal {
     }
 
     pub fn clear_current_line() {
-        print!("{}", termion::clear::CurrentLine);
+        print!("{}", clear::CurrentLine);
     }
 
     pub fn clear_screen() {
-        print!("{}", termion::clear::All);
+        print!("{}", clear::All);
     }
 
     pub fn cursor_hide() {
-        print!("{}", termion::cursor::Hide);
+        print!("{}", cursor::Hide);
     }
 
     #[allow(clippy::cast_possible_truncation)]
@@ -48,11 +49,11 @@ impl Terminal {
         y = y.saturating_add(1);
         let x = x as u16;
         let y = y as u16;
-        print!("{}", termion::cursor::Goto(x, y));
+        print!("{}", cursor::Goto(x, y));
     }
 
     pub fn cursor_show() {
-        print!("{}", termion::cursor::Show);
+        print!("{}", cursor::Show);
     }
 
     pub fn flush() -> Result<(), std::io::Error> {

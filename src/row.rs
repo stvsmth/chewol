@@ -2,6 +2,7 @@ use crate::highlighting;
 use crate::HighlightOptions;
 use crate::SearchDirection;
 use std::cmp::min;
+use termion::color;
 use unicode_segmentation::UnicodeSegmentation;
 
 /* TODO:
@@ -426,8 +427,7 @@ impl Row {
                     .unwrap_or(&highlighting::Type::None);
                 if highlighting_type != current_highlighting {
                     current_highlighting = highlighting_type;
-                    let start_highlight =
-                        format!("{}", termion::color::Fg(highlighting_type.to_color()));
+                    let start_highlight = format!("{}", color::Fg(highlighting_type.to_color()));
                     result.push_str(&start_highlight[..]);
                 }
                 if c == '\t' {
@@ -437,7 +437,7 @@ impl Row {
                 }
             }
         }
-        let end_highlight = format!("{}", termion::color::Fg(termion::color::Reset));
+        let end_highlight = format!("{}", color::Fg(color::Reset));
         result.push_str(&end_highlight[..]);
         result
     }
