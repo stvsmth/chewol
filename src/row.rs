@@ -1,4 +1,4 @@
-use crate::highlighting;
+use crate::highlighting::Mode;
 use crate::HighlightOptions;
 use crate::SearchDirection;
 use std::cmp::min;
@@ -20,7 +20,7 @@ enter an infinite loop?
 #[derive(Default)]
 pub struct Row {
     len: usize,
-    highlighting: Vec<highlighting::Type>,
+    highlighting: Vec<Mode>,
     pub is_highlighted: bool,
     string: String,
 }
@@ -96,7 +96,7 @@ impl Row {
         let chars: Vec<char> = self.string.chars().collect();
         if self.is_highlighted && word.is_none() {
             if let Some(hl_type) = self.highlighting.last() {
-                if *hl_type == highlighting::Type::MultilineComment
+                if *hl_type == Mode::MultilineComment
                     && self.string.len() > 1
                     && self.string[self.string.len() - 2..] == *"*/"
                 {
@@ -115,7 +115,7 @@ impl Row {
                 chars.len()
             };
             for _ in 0..closing_index {
-                self.highlighting.push(highlighting::Type::MultilineComment);
+                self.highlighting.push(Mode::MultilineComment);
             }
             index = closing_index;
         }
@@ -135,7 +135,7 @@ impl Row {
             {
                 continue;
             }
-            self.highlighting.push(highlighting::Type::None);
+            self.highlighting.push(Mode::None);
             index += 1;
         }
         self.highlight_match(word);
@@ -163,7 +163,7 @@ impl Row {
                 if let Some(closing_char) = chars.get(closing_index) {
                     if *closing_char == '\'' {
                         for _ in 0..=closing_index.saturating_sub(*index) {
-                            self.highlighting.push(highlighting::Type::Character);
+                            self.highlighting.push(Mode::Character);
                             *index += 1;
                         }
                         return true;
@@ -184,7 +184,7 @@ impl Row {
             if let Some(next_char) = chars.get(index.saturating_add(1)) {
                 if *next_char == '/' {
                     for _ in *index..chars.len() {
-                        self.highlighting.push(highlighting::Type::Comment);
+                        self.highlighting.push(Mode::Comment);
                         *index += 1;
                     }
                     return true;
@@ -199,7 +199,7 @@ impl Row {
         index: &mut usize,
         chars: &[char],
         keywords: &[String],
-        hl_type: highlighting::Type,
+        hl_type: Mode,
     ) -> bool {
         if *index > 0 {
             let prev_char = chars[*index - 1];
@@ -231,7 +231,7 @@ impl Row {
                 if let Some(next_index) = search_match.checked_add(word[..].graphemes(true).count())
                 {
                     for i in index.saturating_add(search_match)..next_index {
-                        self.highlighting[i] = highlighting::Type::Match;
+                        self.highlighting[i] = Mode::Match;
                     }
                     index = next_index;
                 } else {
@@ -258,7 +258,7 @@ impl Row {
                             chars.len()
                         };
                     for _ in *index..closing_index {
-                        self.highlighting.push(highlighting::Type::MultilineComment);
+                        self.highlighting.push(Mode::MultilineComment);
                         *index += 1;
                     }
                     return true;
@@ -283,7 +283,7 @@ impl Row {
                 }
             }
             loop {
-                self.highlighting.push(highlighting::Type::Number);
+                self.highlighting.push(Mode::Number);
                 *index += 1;
                 if let Some(next_char) = chars.get(*index) {
                     if *next_char != '.' && !next_char.is_ascii_digit() {
@@ -304,12 +304,7 @@ impl Row {
         opts: &HighlightOptions,
         chars: &[char],
     ) -> bool {
-        self.highlight_keywords(
-            index,
-            chars,
-            opts.primary_keywords(),
-            highlighting::Type::PrimaryKeyword,
-        )
+        self.highlight_keywords(index, chars, opts.primary_keywords(), Mode::PrimaryKeyword)
     }
 
     fn highlight_secondary_keywords(
@@ -322,7 +317,7 @@ impl Row {
             index,
             chars,
             opts.secondary_keywords(),
-            highlighting::Type::SecondaryKeyword,
+            Mode::SecondaryKeyword,
         )
     }
 
@@ -331,7 +326,7 @@ impl Row {
         index: &mut usize,
         substring: &str,
         chars: &[char],
-        hl_type: highlighting::Type,
+        hl_type: Mode,
     ) -> bool {
         if substring.is_empty() {
             return false;
@@ -362,7 +357,7 @@ impl Row {
     ) -> bool {
         if opts.strings() && c == '"' {
             loop {
-                self.highlighting.push(highlighting::Type::String);
+                self.highlighting.push(Mode::String);
                 *index += 1;
 
                 if let Some(next_char) = chars.get(*index) {
@@ -373,7 +368,7 @@ impl Row {
                     break;
                 }
             }
-            self.highlighting.push(highlighting::Type::String);
+            self.highlighting.push(Mode::String);
             *index += 1;
             return true;
         }
@@ -413,7 +408,7 @@ impl Row {
         let end = min(end, self.string.len());
         let start = min(start, end);
         let mut result = String::new();
-        let mut current_highlighting = &highlighting::Type::None;
+        let mut current_highlighting = &Mode::None;
         for (index, grapheme) in self.string[..]
             .graphemes(true)
             .enumerate()
@@ -421,10 +416,7 @@ impl Row {
             .take(end - start)
         {
             if let Some(c) = grapheme.chars().next() {
-                let highlighting_type = self
-                    .highlighting
-                    .get(index)
-                    .unwrap_or(&highlighting::Type::None);
+                let highlighting_type = self.highlighting.get(index).unwrap_or(&Mode::None);
                 if highlighting_type != current_highlighting {
                     current_highlighting = highlighting_type;
                     let start_highlight = format!("{}", color::Fg(highlighting_type.to_color()));
