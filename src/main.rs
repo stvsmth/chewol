@@ -4,7 +4,7 @@
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::return_self_not_must_use,
-    clippy::struct_excessive_bools,
+    clippy::struct_excessive_bools
 )]
 
 mod document;

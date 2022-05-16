@@ -39,6 +39,7 @@ impl StatusMessage {
         }
     }
 }
+
 #[derive(Default, Clone)]
 pub struct Position {
     pub x: usize,
@@ -174,14 +175,14 @@ impl Editor {
         match key {
             Key::PageUp | Key::Ctrl('u') => {
                 y = if y > terminal_height {
-                    y - terminal_height
+                    y.saturating_sub(terminal_height)
                 } else {
                     0
                 }
             }
             Key::PageDown | Key::Ctrl('d') => {
                 y = if y.saturating_add(terminal_height) < height {
-                    y + terminal_height as usize
+                    y.saturating_add(terminal_height)
                 } else {
                     height
                 }
@@ -334,8 +335,8 @@ impl Editor {
             self.draw_status_bar();
             self.draw_message_bar();
             Terminal::cursor_position(&Position {
-                x: self.cursor_position.x.saturating_add(self.offset.x),
-                y: self.cursor_position.y.saturating_add(self.offset.y),
+                x: self.cursor_position.x.saturating_sub(self.offset.x),
+                y: self.cursor_position.y.saturating_sub(self.offset.y),
             });
         }
         Terminal::cursor_show();
@@ -384,12 +385,12 @@ impl Editor {
         if y < offset.y {
             offset.y = y;
         } else if y >= offset.y.saturating_add(height) {
-            offset.y = y.saturating_add(height).saturating_add(1);
+            offset.y = y.saturating_sub(height).saturating_add(1);
         }
         if x < offset.x {
             offset.x = x;
         } else if x >= offset.x.saturating_add(width) {
-            offset.x = x.saturating_add(width).saturating_add(1);
+            offset.x = x.saturating_sub(width).saturating_add(1);
         }
     }
 

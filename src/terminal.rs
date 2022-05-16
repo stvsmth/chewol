@@ -23,7 +23,7 @@ impl Terminal {
         Ok(Self {
             size: Size {
                 width: size.0,
-                height: size.1.saturating_sub(2),
+                height: size.1.saturating_sub(2), // accommodate status bar height
             },
             _stdout: stdout().into_raw_mode()?,
         })
